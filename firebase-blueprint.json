@@ -1,0 +1,184 @@
+{
+  "entities": {
+    "Flight": {
+      "title": "Flight",
+      "description": "Commercial flight schedule record stored in Cloud Firestore, readable by signed-in users and managed via CRUD by Admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "flightNumber": { "type": "string", "minLength": 2, "maxLength": 20 },
+        "normalizedCode": { "type": "string", "minLength": 2, "maxLength": 20, "pattern": "^[A-Z0-9]+$" },
+        "airlineName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "airlineIata": { "type": "string", "minLength": 1, "maxLength": 10 },
+        "airlineIcao": { "type": "string", "minLength": 1, "maxLength": 10 },
+        "airlineCallsign": { "type": "string", "maxLength": 40 },
+        "airlineAccentColor": { "type": "string", "minLength": 4, "maxLength": 20 },
+        "originIata": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "originIcao": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "originName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "originCity": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "originCountry": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "originTerminal": { "type": "string", "maxLength": 60 },
+        "originGate": { "type": "string", "maxLength": 30 },
+        "destinationIata": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "destinationIcao": { "type": "string", "minLength": 2, "maxLength": 10 },
+        "destinationName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "destinationCity": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "destinationCountry": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "destinationTerminal": { "type": "string", "maxLength": 60 },
+        "destinationGate": { "type": "string", "maxLength": 30 },
+        "aircraftModel": { "type": "string", "maxLength": 80 },
+        "registration": { "type": "string", "maxLength": 30 },
+        "departureHour": { "type": "integer" },
+        "departureMinute": { "type": "integer" },
+        "durationMinutes": { "type": "integer" },
+        "routeType": { "type": "string", "enum": ["domestic", "international"] },
+        "distanceKm": { "type": "integer" },
+        "statusOverride": {
+          "type": "string",
+          "enum": ["AUTO", "SCHEDULED", "ON_TIME", "DEPARTED", "DELAYED", "ARRIVED", "CANCELLED"]
+        },
+        "delayMinutes": { "type": "integer" },
+        "disruptionReason": { "type": "string", "maxLength": 240 },
+        "createdBy": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "flightNumber",
+        "normalizedCode",
+        "airlineName",
+        "airlineIata",
+        "airlineIcao",
+        "airlineCallsign",
+        "airlineAccentColor",
+        "originIata",
+        "originIcao",
+        "originName",
+        "originCity",
+        "originCountry",
+        "originTerminal",
+        "originGate",
+        "destinationIata",
+        "destinationIcao",
+        "destinationName",
+        "destinationCity",
+        "destinationCountry",
+        "destinationTerminal",
+        "destinationGate",
+        "aircraftModel",
+        "registration",
+        "departureHour",
+        "departureMinute",
+        "durationMinutes",
+        "routeType",
+        "distanceKm",
+        "statusOverride",
+        "delayMinutes",
+        "disruptionReason",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered user account metadata, role, signup permission status, and login tracking.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "signupStatus": { "type": "string", "enum": ["approved", "pending", "blocked"] },
+        "authProvider": { "type": "string", "enum": ["google", "password"] },
+        "loginCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "fullName",
+        "email",
+        "role",
+        "signupStatus",
+        "authProvider",
+        "loginCount",
+        "createdAt",
+        "lastLoginAt",
+        "updatedAt"
+      ]
+    },
+    "AuthLog": {
+      "title": "AuthLog",
+      "description": "Immutable login and signup event log for user authentication auditing.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "eventType": { "type": "string", "enum": ["SIGNUP", "LOGIN"] },
+        "authProvider": { "type": "string", "enum": ["google", "password"] },
+        "signupStatusAtEvent": { "type": "string", "enum": ["approved", "pending", "blocked"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "email",
+        "fullName",
+        "eventType",
+        "authProvider",
+        "signupStatusAtEvent",
+        "createdAt"
+      ]
+    },
+    "AuthSettings": {
+      "title": "AuthSettings",
+      "description": "Global signup permission configuration controlled exclusively by Admin.",
+      "type": "object",
+      "properties": {
+        "allowSignup": { "type": "boolean" },
+        "requireApproval": { "type": "boolean" },
+        "updatedBy": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["allowSignup", "requireApproval", "updatedBy", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted Admin privilege document for database-backed RBAC verification.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "grantedBy": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/flights/{flightId}": {
+      "schema": { "$ref": "#/entities/Flight" },
+      "description": "Master flight schedules searchable and readable by authenticated users, with CRUD restricted to Admin."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User signup/login profile records with role and signupStatus permission enforcement."
+    },
+    "/auth_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuthLog" },
+      "description": "Immutable authentication audit log storing user login and signup timestamps."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AuthSettings" },
+      "description": "Global signup permission toggles (auth_config) managed by Admin."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted Admin role assignments."
+    }
+  }
+}

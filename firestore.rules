@@ -1,0 +1,320 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pillar 0: Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Global Hardened Helpers
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Sole designated admin account (sakim@gmail.com) — works immediately on
+    // Email/Password and Google sign-in without requiring email_verified.
+    function isDesignatedAdmin() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() == 'sakim@gmail.com';
+    }
+
+    function isAdmin() {
+      return isDesignatedAdmin();
+    }
+
+    function isSignupOpen() {
+      return !exists(/databases/$(database)/documents/settings/auth_config)
+        || get(/databases/$(database)/documents/settings/auth_config).data.allowSignup == true;
+    }
+
+    function isApprovalRequired() {
+      return exists(/databases/$(database)/documents/settings/auth_config)
+        && get(/databases/$(database)/documents/settings/auth_config).data.requireApproval == true;
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints
+    // =========================================================================
+    function isValidFlight(data) {
+      return data.keys().hasAll([
+          'id', 'flightNumber', 'normalizedCode', 'airlineName', 'airlineIata',
+          'airlineIcao', 'airlineCallsign', 'airlineAccentColor', 'originIata',
+          'originIcao', 'originName', 'originCity', 'originCountry',
+          'originTerminal', 'originGate', 'destinationIata', 'destinationIcao',
+          'destinationName', 'destinationCity', 'destinationCountry',
+          'destinationTerminal', 'destinationGate', 'aircraftModel', 'registration',
+          'departureHour', 'departureMinute', 'durationMinutes', 'routeType',
+          'distanceKm', 'statusOverride', 'delayMinutes', 'disruptionReason',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'flightNumber', 'normalizedCode', 'airlineName', 'airlineIata',
+          'airlineIcao', 'airlineCallsign', 'airlineAccentColor', 'originIata',
+          'originIcao', 'originName', 'originCity', 'originCountry',
+          'originTerminal', 'originGate', 'destinationIata', 'destinationIcao',
+          'destinationName', 'destinationCity', 'destinationCountry',
+          'destinationTerminal', 'destinationGate', 'aircraftModel', 'registration',
+          'departureHour', 'departureMinute', 'durationMinutes', 'routeType',
+          'distanceKm', 'statusOverride', 'delayMinutes', 'disruptionReason',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.flightNumber is string && data.flightNumber.size() >= 2 && data.flightNumber.size() <= 20
+        && data.normalizedCode is string && data.normalizedCode.size() >= 2 && data.normalizedCode.size() <= 20 && data.normalizedCode.matches('^[A-Z0-9]+$')
+        && data.airlineName is string && data.airlineName.size() >= 1 && data.airlineName.size() <= 100
+        && data.airlineIata is string && data.airlineIata.size() >= 1 && data.airlineIata.size() <= 10
+        && data.airlineIcao is string && data.airlineIcao.size() >= 1 && data.airlineIcao.size() <= 10
+        && data.airlineCallsign is string && data.airlineCallsign.size() <= 40
+        && data.airlineAccentColor is string && data.airlineAccentColor.size() >= 4 && data.airlineAccentColor.size() <= 20
+        && data.originIata is string && data.originIata.size() >= 2 && data.originIata.size() <= 10
+        && data.originIcao is string && data.originIcao.size() >= 2 && data.originIcao.size() <= 10
+        && data.originName is string && data.originName.size() >= 1 && data.originName.size() <= 120
+        && data.originCity is string && data.originCity.size() >= 1 && data.originCity.size() <= 80
+        && data.originCountry is string && data.originCountry.size() >= 1 && data.originCountry.size() <= 80
+        && data.originTerminal is string && data.originTerminal.size() <= 60
+        && data.originGate is string && data.originGate.size() <= 30
+        && data.destinationIata is string && data.destinationIata.size() >= 2 && data.destinationIata.size() <= 10
+        && data.destinationIcao is string && data.destinationIcao.size() >= 2 && data.destinationIcao.size() <= 10
+        && data.destinationName is string && data.destinationName.size() >= 1 && data.destinationName.size() <= 120
+        && data.destinationCity is string && data.destinationCity.size() >= 1 && data.destinationCity.size() <= 80
+        && data.destinationCountry is string && data.destinationCountry.size() >= 1 && data.destinationCountry.size() <= 80
+        && data.destinationTerminal is string && data.destinationTerminal.size() <= 60
+        && data.destinationGate is string && data.destinationGate.size() <= 30
+        && data.aircraftModel is string && data.aircraftModel.size() <= 80
+        && data.registration is string && data.registration.size() <= 30
+        && data.departureHour is int && data.departureHour >= 0 && data.departureHour <= 23
+        && data.departureMinute is int && data.departureMinute >= 0 && data.departureMinute <= 59
+        && data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 1440
+        && data.routeType in ['domestic', 'international']
+        && data.distanceKm is int && data.distanceKm >= 1 && data.distanceKm <= 25000
+        && data.statusOverride in ['AUTO', 'SCHEDULED', 'ON_TIME', 'DEPARTED', 'DELAYED', 'ARRIVED', 'CANCELLED']
+        && data.delayMinutes is int && data.delayMinutes >= 0 && data.delayMinutes <= 1440
+        && data.disruptionReason is string && data.disruptionReason.size() <= 240
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'fullName', 'email', 'role', 'signupStatus',
+          'authProvider', 'loginCount', 'createdAt', 'lastLoginAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'fullName', 'email', 'role', 'signupStatus',
+          'authProvider', 'loginCount', 'createdAt', 'lastLoginAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.role in ['user', 'admin']
+        && data.signupStatus in ['approved', 'pending', 'blocked']
+        && data.authProvider in ['google', 'password']
+        && data.loginCount is int && data.loginCount >= 1 && data.loginCount <= 1000000
+        && data.createdAt is timestamp
+        && data.lastLoginAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAuthLog(data) {
+      return data.keys().hasAll([
+          'uid', 'email', 'fullName', 'eventType', 'authProvider', 'signupStatusAtEvent', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'fullName', 'eventType', 'authProvider', 'signupStatusAtEvent', 'createdAt'
+        ])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100
+        && data.eventType in ['SIGNUP', 'LOGIN']
+        && data.authProvider in ['google', 'password']
+        && data.signupStatusAtEvent in ['approved', 'pending', 'blocked']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAuthSettings(data) {
+      return data.keys().hasAll(['allowSignup', 'requireApproval', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['allowSignup', 'requireApproval', 'updatedBy', 'updatedAt'])
+        && data.allowSignup is bool
+        && data.requireApproval is bool
+        && isValidId(data.updatedBy)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && isValidId(data.grantedBy)
+        && data.createdAt is timestamp;
+    }
+
+    // =========================================================================
+    // 1. Flights Collection (Read by signed-in users; CRUD strictly by sakim@gmail.com)
+    // =========================================================================
+    match /flights/{flightId} {
+      allow get: if isValidId(flightId) && isSignedIn();
+      allow list: if isSignedIn();
+
+      allow create: if isValidId(flightId)
+        && isSignedIn()
+        && isValidFlight(incoming())
+        && incoming().id == flightId
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow update: if isValidId(flightId)
+        && isSignedIn()
+        && isValidFlight(incoming())
+        && incoming().id == existing().id
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'flightNumber', 'normalizedCode', 'airlineName', 'airlineIata',
+          'airlineIcao', 'airlineCallsign', 'airlineAccentColor', 'originIata',
+          'originIcao', 'originName', 'originCity', 'originCountry',
+          'originTerminal', 'originGate', 'destinationIata', 'destinationIcao',
+          'destinationName', 'destinationCity', 'destinationCountry',
+          'destinationTerminal', 'destinationGate', 'aircraftModel', 'registration',
+          'departureHour', 'departureMinute', 'durationMinutes', 'routeType',
+          'distanceKm', 'statusOverride', 'delayMinutes', 'disruptionReason',
+          'updatedAt'
+        ])
+        && isAdmin();
+
+      allow delete: if isValidId(flightId) && isAdmin();
+    }
+
+    // =========================================================================
+    // 2. Users Collection (PII Isolated; sakim@gmail.com is sole Admin)
+    // =========================================================================
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isDesignatedAdmin());
+
+      allow create: if isValidId(userId)
+        && isSignedIn()
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().lastLoginAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          (isDesignatedAdmin() && request.auth.uid == userId && incoming().email.lower() == 'sakim@gmail.com' && incoming().role == 'admin' && incoming().signupStatus == 'approved')
+          || (
+            !isDesignatedAdmin()
+            && request.auth.uid == userId
+            && incoming().email == request.auth.token.email
+            && incoming().role == 'user'
+            && incoming().loginCount == 1
+            && isSignupOpen()
+            && ((isApprovalRequired() && incoming().signupStatus == 'pending') || (!isApprovalRequired() && incoming().signupStatus == 'approved'))
+          )
+        );
+
+      allow update: if isValidId(userId)
+        && isSignedIn()
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && (request.auth.uid == userId ? incoming().role == 'admin' : incoming().role == 'user')
+            && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'role', 'signupStatus', 'lastLoginAt', 'loginCount', 'updatedAt'])
+          )
+          || (
+            !isDesignatedAdmin()
+            && request.auth.uid == userId
+            && existing().signupStatus != 'blocked'
+            && incoming().role == 'user'
+            && incoming().signupStatus == existing().signupStatus
+            && incoming().email == existing().email
+            && incoming().authProvider == existing().authProvider
+            && incoming().lastLoginAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'role', 'lastLoginAt', 'loginCount', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(userId) && isAdmin() && userId != request.auth.uid;
+    }
+
+    // =========================================================================
+    // 3. Auth Logs Collection (Immutable Login & Signup Activity)
+    // =========================================================================
+    match /auth_logs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isDesignatedAdmin());
+
+      allow create: if isValidId(logId)
+        && isSignedIn()
+        && isValidAuthLog(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().email == request.auth.token.email
+        && incoming().createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if isValidId(logId) && isAdmin();
+    }
+
+    // =========================================================================
+    // 4. Settings Collection (Global Signup Permission Controls)
+    // =========================================================================
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && settingId == 'auth_config' && isSignedIn();
+      allow list: if false;
+
+      allow create, update: if isValidId(settingId)
+        && settingId == 'auth_config'
+        && isSignedIn()
+        && isValidAuthSettings(incoming())
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // 5. Admins Collection (Trusted Admin Role Registry — sakim@gmail.com only)
+    // =========================================================================
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isDesignatedAdmin());
+
+      allow create: if isValidId(userId)
+        && isSignedIn()
+        && isValidAdminRecord(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && isDesignatedAdmin()
+        && request.auth.uid == userId
+        && incoming().grantedBy == request.auth.uid;
+
+      allow update: if false;
+      allow delete: if isValidId(userId) && isAdmin() && userId != request.auth.uid;
+    }
+  }
+}
